@@ -33,7 +33,7 @@ const DB = {
     this.sipInvestments = this.get(STORAGE_KEYS.sipInvestments, []);
     this.loanEMIs = this.get(STORAGE_KEYS.loanEMIs, []);
     this.budgets = this.get(STORAGE_KEYS.budgets, { monthlyTotal: 0, categories: {}, banks: {} });
-    this.password = this.get(STORAGE_KEYS.password, 'admin123');
+    this.password = this.get(STORAGE_KEYS.password, '');
     this.session = this.get(STORAGE_KEYS.session, false);
   },
   save() {
@@ -130,13 +130,31 @@ function doLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value;
   const err = document.getElementById('login-error');
-  if (user === 'admin' && pass === DB.password) {
+  if (!user || !pass) {
+    err.textContent = 'Enter username and password';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  if (!DB.password) {
+    DB.password = pass;
+    DB.session = true;
+    DB.save();
+    err.classList.add('hidden');
+    document.getElementById('login-page').classList.add('hidden');
+    showApp();
+    toast('Login setup completed', 'success');
+    return;
+  }
+
+  if (pass === DB.password) {
     err.classList.add('hidden');
     DB.session = true;
     DB.save();
     document.getElementById('login-page').classList.add('hidden');
     showApp();
   } else {
+    err.textContent = 'Invalid credentials';
     err.classList.remove('hidden');
   }
 }
@@ -517,6 +535,7 @@ function saveBank() {
     bank.current = current;
     DB.txns.forEach(txn => {
       if (txn.bankId === id) txn.bank = name;
+      if (txn.toBankId === id && txn.type === 'Self Transfer') txn.desc = txn.desc;
     });
     DB.recurringPayments.forEach(item => {
       if (item.bankId === id) item.bankName = name;
