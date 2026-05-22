@@ -49,6 +49,18 @@
       <a href="#" class="nav-item" data-page="transfer" onclick="showPage('transfer',this)">
         <span class="nav-icon">ST</span> Self Transfer
       </a>
+      <a href="#" class="nav-item" data-page="recurring" onclick="showPage('recurring',this)">
+        <span class="nav-icon">RP</span> Recurring Payments
+      </a>
+      <a href="#" class="nav-item" data-page="sip" onclick="showPage('sip',this)">
+        <span class="nav-icon">SI</span> SIP / Investments
+      </a>
+      <a href="#" class="nav-item" data-page="loan" onclick="showPage('loan',this)">
+        <span class="nav-icon">LE</span> Loan EMI
+      </a>
+      <a href="#" class="nav-item" data-page="budget" onclick="showPage('budget',this)">
+        <span class="nav-icon">BG</span> Budget
+      </a>
     </nav>
     <div class="sidebar-footer">
       <button class="btn-ghost" onclick="doLogout()">Logout</button>
@@ -67,7 +79,8 @@
 
     <section id="page-dashboard" class="page active">
       <div class="summary-grid" id="summary-grid"></div>
-      <div class="section-row">
+
+      <div class="section-row dashboard-main-row">
         <div class="card-block">
           <div class="block-header">
             <h3>Recent Transactions</h3>
@@ -78,6 +91,25 @@
         <div class="card-block">
           <div class="block-header"><h3>Bank Balances</h3></div>
           <div id="bank-summary-list"></div>
+        </div>
+      </div>
+
+      <div class="dashboard-list-grid">
+        <div class="card-block">
+          <div class="block-header"><h3>Upcoming Payments - Next 7 Days</h3></div>
+          <div id="dashboard-upcoming-7"></div>
+        </div>
+        <div class="card-block">
+          <div class="block-header"><h3>Overdue Recurring Payments</h3></div>
+          <div id="dashboard-overdue-recurring"></div>
+        </div>
+        <div class="card-block">
+          <div class="block-header"><h3>Upcoming SIP Deductions</h3></div>
+          <div id="dashboard-upcoming-sip"></div>
+        </div>
+        <div class="card-block">
+          <div class="block-header"><h3>Upcoming EMI Payments</h3></div>
+          <div id="dashboard-upcoming-emi"></div>
         </div>
       </div>
     </section>
@@ -140,6 +172,454 @@
           </thead>
           <tbody id="transfers-tbody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="page-recurring" class="page hidden">
+      <div class="page-header">
+        <h2>Recurring Payments</h2>
+      </div>
+
+      <div class="module-grid">
+        <div class="card-block">
+          <div class="block-header"><h3>Add / Edit Recurring Payment</h3></div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Payment Name</label>
+              <input type="text" id="rp-name" placeholder="Payment name" />
+            </div>
+            <div class="form-group">
+              <label>Payment Type</label>
+              <select id="rp-type">
+                <option>Mobile Recharge</option>
+                <option>Electricity Bill</option>
+                <option>Internet Bill</option>
+                <option>Rent</option>
+                <option>SIP</option>
+                <option>Loan EMI</option>
+                <option>Subscription</option>
+                <option>Insurance</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" id="rp-amount" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Bank Account</label>
+              <select id="rp-bank"></select>
+            </div>
+            <div class="form-group">
+              <label>Due Date</label>
+              <input type="date" id="rp-due-date" />
+            </div>
+            <div class="form-group">
+              <label>Frequency</label>
+              <select id="rp-frequency">
+                <option>Monthly</option>
+                <option>Quarterly</option>
+                <option>Half-Yearly</option>
+                <option>Yearly</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Reminder Before</label>
+              <select id="rp-reminder">
+                <option value="1">1 Day</option>
+                <option value="3">3 Days</option>
+                <option value="7">7 Days</option>
+                <option value="15">15 Days</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="rp-status">
+                <option>Pending</option>
+                <option>Paid</option>
+                <option>Overdue</option>
+              </select>
+            </div>
+            <div class="form-group form-full">
+              <label>Remarks</label>
+              <input type="text" id="rp-remarks" placeholder="Optional notes" />
+            </div>
+          </div>
+          <input type="hidden" id="rp-edit-id" />
+          <div class="inline-actions">
+            <button class="btn-ghost" type="button" onclick="resetRecurringForm()">Clear</button>
+            <button class="btn-primary" type="button" onclick="saveRecurringPayment()">Save Payment</button>
+          </div>
+        </div>
+
+        <div class="card-block">
+          <div class="block-header"><h3>Upcoming Outlook</h3></div>
+          <div class="mini-stat-grid">
+            <div class="mini-stat">
+              <span class="mini-stat-label">Next 7 Days</span>
+              <strong id="recurring-next-7-count">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Next 30 Days</span>
+              <strong id="recurring-next-30-count">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Overdue</span>
+              <strong id="recurring-overdue-count">0</strong>
+            </div>
+          </div>
+          <div class="stack-list-wrap">
+            <div class="stack-list-title">Upcoming in Next 7 Days</div>
+            <div id="recurring-upcoming-7"></div>
+          </div>
+          <div class="stack-list-wrap">
+            <div class="stack-list-title">Upcoming in Next 30 Days</div>
+            <div id="recurring-upcoming-30"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Bank</th>
+              <th>Amount</th>
+              <th>Next Due</th>
+              <th>Frequency</th>
+              <th>Status</th>
+              <th>Remarks</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recurring-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="page-sip" class="page hidden">
+      <div class="page-header">
+        <h2>SIP / Investments</h2>
+      </div>
+
+      <div class="module-grid">
+        <div class="card-block">
+          <div class="block-header"><h3>Add / Edit SIP</h3></div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>SIP / Investment Name</label>
+              <input type="text" id="sip-name" placeholder="Investment name" />
+            </div>
+            <div class="form-group">
+              <label>Investment Type</label>
+              <select id="sip-type">
+                <option>Mutual Fund</option>
+                <option>Stock</option>
+                <option>RD</option>
+                <option>FD</option>
+                <option>NPS</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Monthly Amount</label>
+              <input type="number" id="sip-amount" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Deduction Bank</label>
+              <select id="sip-bank"></select>
+            </div>
+            <div class="form-group">
+              <label>Deduction Date</label>
+              <input type="date" id="sip-deduction-date" />
+            </div>
+            <div class="form-group">
+              <label>Start Date</label>
+              <input type="date" id="sip-start-date" />
+            </div>
+            <div class="form-group">
+              <label>End Date (Optional)</label>
+              <input type="date" id="sip-end-date" />
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="sip-status">
+                <option>Active</option>
+                <option>Paused</option>
+                <option>Closed</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Total Invested Amount</label>
+              <input type="number" id="sip-total-invested" placeholder="0.00" />
+            </div>
+            <div class="form-group form-full">
+              <label>Remarks</label>
+              <input type="text" id="sip-remarks" placeholder="Optional notes" />
+            </div>
+          </div>
+          <input type="hidden" id="sip-edit-id" />
+          <div class="inline-actions">
+            <button class="btn-ghost" type="button" onclick="resetSipForm()">Clear</button>
+            <button class="btn-primary" type="button" onclick="saveSipInvestment()">Save SIP</button>
+          </div>
+        </div>
+
+        <div class="card-block">
+          <div class="block-header"><h3>Investment Summary</h3></div>
+          <div class="mini-stat-grid">
+            <div class="mini-stat">
+              <span class="mini-stat-label">This Month</span>
+              <strong id="sip-summary-month">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Total Invested</span>
+              <strong id="sip-summary-total">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Active SIPs</span>
+              <strong id="sip-summary-active">0</strong>
+            </div>
+          </div>
+          <div class="stack-list-wrap">
+            <div class="stack-list-title">Upcoming SIP Deductions</div>
+            <div id="sip-upcoming-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Bank</th>
+              <th>Monthly Amount</th>
+              <th>Next Deduction</th>
+              <th>Status</th>
+              <th>Total Invested</th>
+              <th>Remarks</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sip-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="page-loan" class="page hidden">
+      <div class="page-header">
+        <h2>Loan EMI</h2>
+      </div>
+
+      <div class="module-grid">
+        <div class="card-block">
+          <div class="block-header"><h3>Add / Edit Loan EMI</h3></div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Loan Name</label>
+              <input type="text" id="loan-name" placeholder="Loan name" />
+            </div>
+            <div class="form-group">
+              <label>Loan Type</label>
+              <select id="loan-type">
+                <option>Two Wheeler Loan</option>
+                <option>Car Loan</option>
+                <option>Home Loan</option>
+                <option>Personal Loan</option>
+                <option>Education Loan</option>
+                <option>Credit Card EMI</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Loan Provider / Bank Name</label>
+              <input type="text" id="loan-provider" placeholder="Provider name" />
+            </div>
+            <div class="form-group">
+              <label>EMI Amount</label>
+              <input type="number" id="loan-emi-amount" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Deduction Bank</label>
+              <select id="loan-bank"></select>
+            </div>
+            <div class="form-group">
+              <label>EMI Date</label>
+              <input type="date" id="loan-emi-date" />
+            </div>
+            <div class="form-group">
+              <label>Loan Start Date</label>
+              <input type="date" id="loan-start-date" />
+            </div>
+            <div class="form-group">
+              <label>Loan End Date</label>
+              <input type="date" id="loan-end-date" />
+            </div>
+            <div class="form-group">
+              <label>Total Loan Amount</label>
+              <input type="number" id="loan-total-amount" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Remaining Loan Amount</label>
+              <input type="number" id="loan-remaining-amount" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Number of EMIs Paid</label>
+              <input type="number" id="loan-emis-paid" placeholder="0" />
+            </div>
+            <div class="form-group">
+              <label>Number of EMIs Remaining</label>
+              <input type="number" id="loan-emis-remaining" placeholder="0" />
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="loan-status">
+                <option>Active</option>
+                <option>Closed</option>
+              </select>
+            </div>
+            <div class="form-group form-full">
+              <label>Remarks</label>
+              <input type="text" id="loan-remarks" placeholder="Optional notes" />
+            </div>
+          </div>
+          <input type="hidden" id="loan-edit-id" />
+          <div class="inline-actions">
+            <button class="btn-ghost" type="button" onclick="resetLoanForm()">Clear</button>
+            <button class="btn-primary" type="button" onclick="saveLoanEmi()">Save Loan</button>
+          </div>
+        </div>
+
+        <div class="card-block">
+          <div class="block-header"><h3>EMI Summary</h3></div>
+          <div class="mini-stat-grid">
+            <div class="mini-stat">
+              <span class="mini-stat-label">This Month</span>
+              <strong id="loan-summary-month">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Paid EMI Count</span>
+              <strong id="loan-summary-paid">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Pending EMI Count</span>
+              <strong id="loan-summary-pending">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Remaining Balance</span>
+              <strong id="loan-summary-remaining">0</strong>
+            </div>
+          </div>
+          <div class="stack-list-wrap">
+            <div class="stack-list-title">Upcoming EMI Payments</div>
+            <div id="loan-upcoming-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Loan Name</th>
+              <th>Type</th>
+              <th>Provider</th>
+              <th>Bank</th>
+              <th>EMI</th>
+              <th>Next EMI</th>
+              <th>Status</th>
+              <th>Remaining Amount</th>
+              <th>EMIs</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="loan-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="page-budget" class="page hidden">
+      <div class="page-header">
+        <h2>Budget</h2>
+      </div>
+
+      <div class="budget-grid">
+        <div class="card-block">
+          <div class="block-header"><h3>Monthly Total Budget</h3></div>
+          <div class="form-group">
+            <label>Monthly Budget Amount</label>
+            <input type="number" id="budget-total-amount" placeholder="0.00" />
+          </div>
+          <div class="inline-actions">
+            <button class="btn-primary" type="button" onclick="saveMonthlyBudget()">Save Monthly Budget</button>
+          </div>
+        </div>
+
+        <div class="card-block">
+          <div class="block-header"><h3>Category-wise Budget</h3></div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Category</label>
+              <select id="budget-category-name">
+                <option>Food & Dining</option>
+                <option>Transport</option>
+                <option>Shopping</option>
+                <option>Entertainment</option>
+                <option>Utilities</option>
+                <option>Healthcare</option>
+                <option>Education</option>
+                <option>Rent</option>
+                <option>Insurance</option>
+                <option>Subscription</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Budget Amount</label>
+              <input type="number" id="budget-category-amount" placeholder="0.00" />
+            </div>
+          </div>
+          <div class="inline-actions">
+            <button class="btn-primary" type="button" onclick="saveCategoryBudget()">Save Category Budget</button>
+          </div>
+          <div id="budget-category-list" class="settings-list"></div>
+        </div>
+
+        <div class="card-block">
+          <div class="block-header"><h3>Bank-wise Spending Limit</h3></div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Bank</label>
+              <select id="budget-bank-name"></select>
+            </div>
+            <div class="form-group">
+              <label>Spending Limit</label>
+              <input type="number" id="budget-bank-amount" placeholder="0.00" />
+            </div>
+          </div>
+          <div class="inline-actions">
+            <button class="btn-primary" type="button" onclick="saveBankBudget()">Save Bank Limit</button>
+          </div>
+          <div id="budget-bank-list" class="settings-list"></div>
+        </div>
+      </div>
+
+      <div class="summary-grid budget-summary-grid" id="budget-summary-cards"></div>
+      <div id="budget-warning-box"></div>
+
+      <div class="section-row budget-section-row">
+        <div class="card-block">
+          <div class="block-header"><h3>Category-wise Spending</h3></div>
+          <div id="budget-category-breakdown"></div>
+        </div>
+        <div class="card-block">
+          <div class="block-header"><h3>Bank-wise Spending</h3></div>
+          <div id="budget-bank-breakdown"></div>
+        </div>
       </div>
     </section>
   </main>
