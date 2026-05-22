@@ -307,6 +307,22 @@ function txnMonthKey(txn) {
   return (txn.date || '').slice(0, 7);
 }
 
+function normalizeTxnTypeValue(type) {
+  const value = String(type || '').trim().toLowerCase();
+  const aliases = {
+    income: 'Income',
+    expense: 'Expense',
+    'self transfer': 'Self Transfer',
+    transfer: 'Self Transfer',
+    'sip / investment': 'SIP / Investment',
+    sip: 'SIP / Investment',
+    investment: 'SIP / Investment',
+    'loan emi': 'Loan EMI',
+    emi: 'Loan EMI'
+  };
+  return aliases[value] || String(type || '').trim();
+}
+
 function parseDate(dateStr) {
   return new Date(dateStr + 'T00:00:00');
 }
@@ -375,7 +391,9 @@ function getLatestDueStatus(schedule, paidHistory) {
 
 function monthExpenseSummary() {
   const key = currentMonthKey();
-  const monthTxns = DB.txns.filter(txn => txnMonthKey(txn) === key);
+  const monthTxns = DB.txns
+    .filter(txn => txnMonthKey(txn) === key)
+    .map(txn => ({ ...txn, type: normalizeTxnTypeValue(txn.type) }));
   return {
     income: sumBy(monthTxns.filter(txn => txn.type === 'Income'), 'amount'),
     expense: sumBy(monthTxns.filter(txn => txn.type === 'Expense'), 'amount'),
@@ -646,7 +664,7 @@ function openTxnModal(id) {
 function saveTransaction() {
   const id = document.getElementById('txn-edit-id').value;
   const date = document.getElementById('txn-date').value;
-  const type = document.getElementById('txn-type').value;
+  const type = normalizeTxnTypeValue(document.getElementById('txn-type').value);
   const bankId = document.getElementById('txn-bank').value;
   const toBankId = document.getElementById('txn-tobank').value;
   const amount = Number(document.getElementById('txn-amount').value);
@@ -677,11 +695,14 @@ function saveTransaction() {
     toast('Transaction saved');
   }
   DB.save();
+  DB.load();
+  normalizeData();
   closeModal('modal-txn');
   renderAll();
 }
 
 function applyTxnBalance(txn) {
+  txn.type = normalizeTxnTypeValue(txn.type);
   const bank = getBank(txn.bankId);
   const toBank = getBank(txn.toBankId);
   if (!bank) return;
@@ -696,6 +717,7 @@ function applyTxnBalance(txn) {
 }
 
 function revertTxnBalance(txn) {
+  txn.type = normalizeTxnTypeValue(txn.type);
   const bank = getBank(txn.bankId);
   const toBank = getBank(txn.toBankId);
   if (!bank) return;
