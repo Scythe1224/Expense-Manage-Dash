@@ -169,6 +169,7 @@ function doLogout() {
 }
 
 function showApp() {
+  document.getElementById('login-page').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   populateBankSelects();
   renderAll();
