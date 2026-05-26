@@ -467,6 +467,24 @@ function sumBy(list, field) {
   return list.reduce((sum, item) => sum + Number(item[field] || 0), 0);
 }
 
+function getLegacyTransferNames(txn) {
+  const desc = String(txn?.desc || '').trim();
+  if (!desc) return { fromName: txn?.bank || '', toName: txn?.toBank || txn?.toBankName || '' };
+
+  const arrowMatch = desc.match(/(.+?)\s*(?:->|→)\s*(.+)/);
+  if (arrowMatch) {
+    return {
+      fromName: String(txn?.bank || arrowMatch[1] || '').trim(),
+      toName: String(txn?.toBank || txn?.toBankName || arrowMatch[2] || '').trim()
+    };
+  }
+
+  return {
+    fromName: txn?.bank || '',
+    toName: txn?.toBank || txn?.toBankName || ''
+  };
+}
+
 function getBankCurrentFromHistory(bankId) {
   const bank = getBank(bankId);
   if (!bank) return 0;
@@ -474,8 +492,9 @@ function getBankCurrentFromHistory(bankId) {
   let current = DB.txns.reduce((currentValue, txn) => {
     const type = normalizeTxnTypeValue(txn.type);
     const amount = Number(txn.amount || 0);
-    const fromMatches = sameBankRef(bank, txn.bankId, txn.bank);
-    const toBankName = txn.toBank || txn.toBankName || '';
+    const transferNames = getLegacyTransferNames(txn);
+    const fromMatches = sameBankRef(bank, txn.bankId, transferNames.fromName);
+    const toBankName = transferNames.toName;
     const toMatches = sameBankRef(bank, txn.toBankId, toBankName);
 
     if (type === 'Income' && fromMatches) return currentValue + amount;
@@ -516,8 +535,9 @@ function getBankAudit(bankId) {
   (DB.txns || []).forEach(txn => {
     const type = normalizeTxnTypeValue(txn.type);
     const amount = Number(txn.amount || 0);
-    const fromMatches = sameBankRef(bank, txn.bankId, txn.bank);
-    const toMatches = sameBankRef(bank, txn.toBankId, txn.toBank || txn.toBankName || '');
+    const transferNames = getLegacyTransferNames(txn);
+    const fromMatches = sameBankRef(bank, txn.bankId, transferNames.fromName);
+    const toMatches = sameBankRef(bank, txn.toBankId, transferNames.toName);
 
     if (type === 'Income' && fromMatches) income += amount;
     if (type === 'Expense' && fromMatches) expense += amount;
