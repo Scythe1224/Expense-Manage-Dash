@@ -698,6 +698,45 @@ body {
   gap: 10px;
 }
 
+.audit-debug {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.audit-debug-title {
+  color: var(--text2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 8px;
+}
+
+.audit-debug-list {
+  display: grid;
+  gap: 8px;
+}
+
+.audit-debug-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: var(--bg3);
+  font-size: 12px;
+}
+
+.audit-debug-meta {
+  color: var(--text2);
+}
+
+.audit-debug-amt {
+  color: var(--text);
+  font-family: var(--font-head);
+}
+
 .audit-cell {
   background: var(--bg3);
   border: 1px solid var(--border2);
