@@ -471,21 +471,28 @@ function getBankCurrentFromHistory(bankId) {
   const bank = getBank(bankId);
   if (!bank) return 0;
 
-  return DB.txns.reduce((current, txn) => {
+  let current = DB.txns.reduce((currentValue, txn) => {
     const type = normalizeTxnTypeValue(txn.type);
     const amount = Number(txn.amount || 0);
     const fromMatches = sameBankRef(bank, txn.bankId, txn.bank);
     const toBankName = txn.toBank || txn.toBankName || '';
     const toMatches = sameBankRef(bank, txn.toBankId, toBankName);
 
-    if (type === 'Income' && fromMatches) return current + amount;
-    if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && fromMatches) return current - amount;
-    if (type === 'Self Transfer') {
-      if (fromMatches) current -= amount;
-      if (toMatches) current += amount;
-    }
-    return current;
+    if (type === 'Income' && fromMatches) return currentValue + amount;
+    if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && fromMatches) return currentValue - amount;
+    return currentValue;
   }, Number(bank.opening || 0));
+
+  current = (DB.transfers || []).reduce((currentValue, tr) => {
+    const amount = Number(tr.amount || 0);
+    const fromMatches = sameBankRef(bank, tr.fromId, tr.from);
+    const toMatches = sameBankRef(bank, tr.toId, tr.to);
+    if (fromMatches) currentValue -= amount;
+    if (toMatches) currentValue += amount;
+    return currentValue;
+  }, current);
+
+  return current;
 }
 
 function syncBankCurrents() {
