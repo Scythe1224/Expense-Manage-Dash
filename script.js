@@ -101,6 +101,7 @@ function normalizeData() {
     ...item
   }));
 
+  normalizeBankReferences();
   syncRecurringStatuses();
   syncLoanStatuses();
   syncBankCurrents();
@@ -358,11 +359,61 @@ function getBank(id) {
   return DB.banks.find(item => item.id === id);
 }
 
+function normalizeBankNameKey(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findBankByReference(bankId, bankName) {
+  return getBank(bankId) || DB.banks.find(item => normalizeBankNameKey(item.name) === normalizeBankNameKey(bankName));
+}
+
+function normalizeBankReferences() {
+  DB.txns = (DB.txns || []).map(txn => {
+    const fromBank = findBankByReference(txn.bankId, txn.bank);
+    const toBank = findBankByReference(txn.toBankId, txn.toBank || txn.toBankName);
+    return {
+      ...txn,
+      bankId: fromBank?.id || txn.bankId || '',
+      bank: fromBank?.name || txn.bank || '',
+      toBankId: toBank?.id || txn.toBankId || '',
+      toBank: toBank?.name || txn.toBank || txn.toBankName || ''
+    };
+  });
+
+  DB.transfers = (DB.transfers || []).map(tr => {
+    const fromBank = findBankByReference(tr.fromId, tr.from);
+    const toBank = findBankByReference(tr.toId, tr.to);
+    return {
+      ...tr,
+      fromId: fromBank?.id || tr.fromId || '',
+      from: fromBank?.name || tr.from || '',
+      toId: toBank?.id || tr.toId || '',
+      to: toBank?.name || tr.to || ''
+    };
+  });
+
+  DB.recurringPayments = (DB.recurringPayments || []).map(item => {
+    const bank = findBankByReference(item.bankId, item.bankName);
+    return { ...item, bankId: bank?.id || item.bankId || '', bankName: bank?.name || item.bankName || '' };
+  });
+
+  DB.sipInvestments = (DB.sipInvestments || []).map(item => {
+    const bank = findBankByReference(item.bankId, item.bankName);
+    return { ...item, bankId: bank?.id || item.bankId || '', bankName: bank?.name || item.bankName || '' };
+  });
+
+  DB.loanEMIs = (DB.loanEMIs || []).map(item => {
+    const bank = findBankByReference(item.bankId, item.bankName);
+    return { ...item, bankId: bank?.id || item.bankId || '', bankName: bank?.name || item.bankName || '' };
+  });
+}
+
 function sameBankRef(bank, txnBankId, txnBankName) {
   if (!bank) return false;
-  const bankName = String(bank.name || '').trim().toLowerCase();
-  const refName = String(txnBankName || '').trim().toLowerCase();
-  return txnBankId === bank.id || (!!bankName && bankName === refName);
+  return txnBankId === bank.id || (!!normalizeBankNameKey(bank.name) && normalizeBankNameKey(bank.name) === normalizeBankNameKey(txnBankName));
 }
 
 function frequencyToMonths(freq) {
