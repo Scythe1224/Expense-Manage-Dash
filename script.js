@@ -358,6 +358,13 @@ function getBank(id) {
   return DB.banks.find(item => item.id === id);
 }
 
+function sameBankRef(bank, txnBankId, txnBankName) {
+  if (!bank) return false;
+  const bankName = String(bank.name || '').trim().toLowerCase();
+  const refName = String(txnBankName || '').trim().toLowerCase();
+  return txnBankId === bank.id || (!!bankName && bankName === refName);
+}
+
 function frequencyToMonths(freq) {
   return {
     'Monthly': 1,
@@ -416,12 +423,15 @@ function getBankCurrentFromHistory(bankId) {
   return DB.txns.reduce((current, txn) => {
     const type = normalizeTxnTypeValue(txn.type);
     const amount = Number(txn.amount || 0);
+    const fromMatches = sameBankRef(bank, txn.bankId, txn.bank);
+    const toBankName = txn.toBank || txn.toBankName || '';
+    const toMatches = sameBankRef(bank, txn.toBankId, toBankName);
 
-    if (type === 'Income' && txn.bankId === bankId) return current + amount;
-    if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && txn.bankId === bankId) return current - amount;
+    if (type === 'Income' && fromMatches) return current + amount;
+    if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && fromMatches) return current - amount;
     if (type === 'Self Transfer') {
-      if (txn.bankId === bankId) current -= amount;
-      if (txn.toBankId === bankId) current += amount;
+      if (fromMatches) current -= amount;
+      if (toMatches) current += amount;
     }
     return current;
   }, Number(bank.opening || 0));
