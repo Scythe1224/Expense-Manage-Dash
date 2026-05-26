@@ -501,6 +501,14 @@ function syncBankCurrents() {
   });
 }
 
+function rebuildBankBalances() {
+  normalizeBankReferences();
+  syncBankCurrents();
+  DB.save();
+  renderAll();
+  toast('Bank balances rebuilt from opening balances and history', 'success');
+}
+
 function syncRecurringStatuses() {
   DB.recurringPayments.forEach(item => {
     const schedule = getScheduleDates(item.dueDate, frequencyToMonths(item.frequency), 60);

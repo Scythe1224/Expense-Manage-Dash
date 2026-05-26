@@ -356,6 +356,13 @@ body {
   margin-bottom: 24px;
 }
 
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .page-header h2 {
   font-family: var(--font-head);
   font-size: 22px;
@@ -895,6 +902,7 @@ body {
   .topbar { padding: 0 16px; }
   .filter-bar { gap: 8px; }
   .filter-bar select { flex: 1; min-width: 120px; }
+  .page-actions { width: 100%; justify-content: flex-start; }
   .inline-actions { justify-content: stretch; }
   .inline-actions .btn-primary,
   .inline-actions .btn-ghost { width: 100%; }

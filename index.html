@@ -117,7 +117,10 @@
     <section id="page-banks" class="page hidden">
       <div class="page-header">
         <h2>Bank Accounts</h2>
-        <button class="btn-primary" onclick="openBankModal()">+ Add Bank</button>
+        <div class="page-actions">
+          <button class="btn-ghost" onclick="rebuildBankBalances()">Rebuild Bank Balances</button>
+          <button class="btn-primary" onclick="openBankModal()">+ Add Bank</button>
+        </div>
       </div>
       <div id="banks-table-wrap">
         <table class="data-table" id="banks-table">
