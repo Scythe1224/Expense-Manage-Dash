@@ -467,21 +467,39 @@ function sumBy(list, field) {
   return list.reduce((sum, item) => sum + Number(item[field] || 0), 0);
 }
 
+function inferTransferBanksFromDescription(txn) {
+  const desc = String(txn?.desc || '').toLowerCase();
+  if (!desc) return [];
+
+  return DB.banks
+    .map(bank => ({ bank, idx: desc.indexOf(String(bank.name || '').toLowerCase()) }))
+    .filter(entry => entry.idx >= 0)
+    .sort((a, b) => a.idx - b.idx)
+    .map(entry => entry.bank.name);
+}
+
 function getLegacyTransferNames(txn) {
   const desc = String(txn?.desc || '').trim();
-  if (!desc) return { fromName: txn?.bank || '', toName: txn?.toBank || txn?.toBankName || '' };
+  const explicitFrom = String(txn?.bank || '').trim();
+  const explicitTo = String(txn?.toBank || txn?.toBankName || '').trim();
+  const inferredBanks = inferTransferBanksFromDescription(txn);
+
+  if (!desc) return { fromName: explicitFrom, toName: explicitTo };
 
   const arrowMatch = desc.match(/(.+?)\s*(?:->|→)\s*(.+)/);
   if (arrowMatch) {
     return {
-      fromName: String(txn?.bank || arrowMatch[1] || '').trim(),
-      toName: String(txn?.toBank || txn?.toBankName || arrowMatch[2] || '').trim()
+      fromName: explicitFrom || String(arrowMatch[1] || '').trim(),
+      toName: explicitTo || String(arrowMatch[2] || '').trim()
     };
   }
 
+  const inferredFrom = explicitFrom || inferredBanks[0] || '';
+  const inferredTo = explicitTo || inferredBanks.find(name => normalizeBankNameKey(name) !== normalizeBankNameKey(inferredFrom)) || '';
+
   return {
-    fromName: txn?.bank || '',
-    toName: txn?.toBank || txn?.toBankName || ''
+    fromName: inferredFrom,
+    toName: inferredTo
   };
 }
 
