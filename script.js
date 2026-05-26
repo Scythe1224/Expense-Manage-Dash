@@ -73,6 +73,7 @@ function normalizeData() {
   DB.budgets = DB.budgets || { monthlyTotal: 0, categories: {}, banks: {} };
   DB.budgets.categories = DB.budgets.categories || {};
   DB.budgets.banks = DB.budgets.banks || {};
+  DB.txns = (DB.txns || []).filter(txn => !['Recurring Payment', 'Loan EMI'].includes(txn.sourceModule));
 
   DB.recurringPayments = (DB.recurringPayments || []).map(item => ({
     paidHistory: [],
@@ -1310,31 +1311,12 @@ function markRecurringPaid(id) {
   const dueDate = getRecurringCurrentDue(item);
   if (!dueDate) return toast('No due cycle found', 'error');
   if ((item.paidHistory || []).includes(dueDate)) return toast('This recurring payment is already marked paid for this cycle', 'error');
-  const bank = getBank(item.bankId);
-  if (!bank) return toast('Linked bank not found', 'error');
-
-  bank.current = Number(bank.current) - Number(item.amount);
   item.paidHistory = [...(item.paidHistory || []), dueDate];
   item.status = getLatestDueStatus(schedule, item.paidHistory);
 
-  DB.txns.push({
-    id: uid(),
-    date: dueDate,
-    type: 'Expense',
-    bankId: item.bankId,
-    bank: bank.name,
-    amount: item.amount,
-    category: item.type,
-    mode: 'Auto Debit',
-    desc: `${item.name}${item.remarks ? ' - ' + item.remarks : ''}`,
-    sourceModule: 'Recurring Payment',
-    sourceId: item.id,
-    cycleDate: dueDate
-  });
-
   DB.save();
   renderAll();
-  toast('Recurring payment marked as paid');
+  toast('Recurring payment marked as paid without creating a transaction');
 }
 
 function getRecurringUpcoming(days) {
@@ -1678,35 +1660,15 @@ function markLoanEmiPaid(id) {
   const dueDate = getNextUnpaidDate(getLoanSchedule(item), item.paidHistory || [], item.loanStartDate);
   if (!dueDate) return toast('No due EMI cycle found', 'error');
   if ((item.paidHistory || []).includes(dueDate)) return toast('This EMI is already paid for that cycle', 'error');
-
-  const bank = getBank(item.bankId);
-  if (!bank) return toast('Linked bank not found', 'error');
-
-  bank.current = Number(bank.current) - Number(item.emiAmount);
   item.remainingLoanAmount = Math.max(0, Number(item.remainingLoanAmount || 0) - Number(item.emiAmount));
   item.numberOfEMIsPaid = Number(item.numberOfEMIsPaid || 0) + 1;
   item.numberOfEMIsRemaining = Math.max(0, Number(item.numberOfEMIsRemaining || 0) - 1);
   item.paidHistory = [...(item.paidHistory || []), dueDate];
   if (item.remainingLoanAmount === 0 || item.numberOfEMIsRemaining === 0) item.status = 'Closed';
 
-  DB.txns.push({
-    id: uid(),
-    date: dueDate,
-    type: 'Loan EMI',
-    bankId: item.bankId,
-    bank: bank.name,
-    amount: item.emiAmount,
-    category: item.loanType,
-    mode: 'Auto Debit',
-    desc: `${item.loanName}${item.remarks ? ' - ' + item.remarks : ''}`,
-    sourceModule: 'Loan EMI',
-    sourceId: item.id,
-    cycleDate: dueDate
-  });
-
   DB.save();
   renderAll();
-  toast('Loan EMI marked as paid');
+  toast('Loan EMI marked as paid without creating a transaction');
 }
 
 function renderLoanEmis() {
