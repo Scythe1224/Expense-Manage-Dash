@@ -712,6 +712,14 @@ body {
   margin-bottom: 8px;
 }
 
+.audit-debug-subtitle {
+  color: var(--text3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin: 10px 0 6px;
+}
+
 .audit-debug-list {
   display: grid;
   gap: 8px;

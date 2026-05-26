@@ -585,6 +585,7 @@ function getBankAudit(bankId) {
   let emi = 0;
   let transferOut = 0;
   let transferIn = 0;
+  const ledgerRows = [];
   const matchedTransfers = [];
   const unmatchedTransferHints = [];
 
@@ -595,15 +596,28 @@ function getBankAudit(bankId) {
     const fromMatches = sameBankRef(bank, txn.bankId, transferNames.fromName);
     const toMatches = sameBankRef(bank, txn.toBankId, transferNames.toName);
 
-    if (type === 'Income' && fromMatches) income += amount;
-    if (type === 'Expense' && fromMatches) expense += amount;
-    if (type === 'SIP / Investment' && fromMatches) sip += amount;
-    if (type === 'Loan EMI' && fromMatches) emi += amount;
+    if (type === 'Income' && fromMatches) {
+      income += amount;
+      ledgerRows.push({ date: txn.date, kind: 'Income', direction: '+', amount, text: txn.desc || txn.category || type });
+    }
+    if (type === 'Expense' && fromMatches) {
+      expense += amount;
+      ledgerRows.push({ date: txn.date, kind: 'Expense', direction: '-', amount, text: txn.desc || txn.category || type });
+    }
+    if (type === 'SIP / Investment' && fromMatches) {
+      sip += amount;
+      ledgerRows.push({ date: txn.date, kind: 'SIP', direction: '-', amount, text: txn.desc || txn.category || type });
+    }
+    if (type === 'Loan EMI' && fromMatches) {
+      emi += amount;
+      ledgerRows.push({ date: txn.date, kind: 'EMI', direction: '-', amount, text: txn.desc || txn.category || type });
+    }
     if (type === 'Self Transfer') {
       const hasTransferLedgerMatch = txn.transferId && (DB.transfers || []).some(tr => tr.id === txn.transferId);
       if (!hasTransferLedgerMatch) {
         if (fromMatches) {
           transferOut += amount;
+          ledgerRows.push({ date: txn.date, kind: 'Transfer Out', direction: '-', amount, text: txn.desc || `${transferNames.fromName} -> ${transferNames.toName}` });
           matchedTransfers.push({
             source: 'txn',
             direction: 'out',
@@ -614,6 +628,7 @@ function getBankAudit(bankId) {
         }
         if (toMatches) {
           transferIn += amount;
+          ledgerRows.push({ date: txn.date, kind: 'Transfer In', direction: '+', amount, text: txn.desc || `${transferNames.fromName} -> ${transferNames.toName}` });
           matchedTransfers.push({
             source: 'txn',
             direction: 'in',
@@ -650,6 +665,7 @@ function getBankAudit(bankId) {
     const amount = Number(tr.amount || 0);
     if (sameBankRef(bank, tr.fromId, tr.from)) {
       transferOut += amount;
+      ledgerRows.push({ date: tr.date, kind: 'Transfer Out', direction: '-', amount, text: `${tr.from} -> ${tr.to}` });
       matchedTransfers.push({
         source: 'transfer',
         direction: 'out',
@@ -660,6 +676,7 @@ function getBankAudit(bankId) {
     }
     if (sameBankRef(bank, tr.toId, tr.to)) {
       transferIn += amount;
+      ledgerRows.push({ date: tr.date, kind: 'Transfer In', direction: '+', amount, text: `${tr.from} -> ${tr.to}` });
       matchedTransfers.push({
         source: 'transfer',
         direction: 'in',
@@ -682,6 +699,7 @@ function getBankAudit(bankId) {
     transferOut,
     transferIn,
     calculated,
+    ledgerRows: ledgerRows.sort((a, b) => new Date(b.date) - new Date(a.date)),
     matchedTransfers,
     unmatchedTransferHints
   };
@@ -916,6 +934,15 @@ function renderBanks() {
               <div class="audit-cell"><span class="audit-label">Calculated Final</span><div class="audit-value">${fmt(audit.calculated)}</div></div>
             </div>
             <div class="audit-debug">
+              <div class="audit-debug-title">All Rows Used In Balance</div>
+              <div class="audit-debug-list">
+                ${audit.ledgerRows.length ? audit.ledgerRows.map(item => `
+                  <div class="audit-debug-row">
+                    <div class="audit-debug-meta">${fmtDate(item.date)} | ${item.kind} | ${item.text}</div>
+                    <div class="audit-debug-amt">${item.direction}${fmt(item.amount)}</div>
+                  </div>
+                `).join('') : `<div class="audit-debug-row"><div class="audit-debug-meta">No ledger rows used for this bank</div><div class="audit-debug-amt">-</div></div>`}
+              </div>
               <div class="audit-debug-title">Matched Transfer Rows</div>
               <div class="audit-debug-list">
                 ${audit.matchedTransfers.length ? audit.matchedTransfers.map(item => `
