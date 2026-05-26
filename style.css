@@ -656,6 +656,70 @@ body {
   color: var(--green);
 }
 
+.bank-audit-card {
+  margin-top: 16px;
+}
+
+.audit-list {
+  display: grid;
+  gap: 14px;
+}
+
+.audit-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg2);
+  padding: 16px;
+}
+
+.audit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.audit-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  color: var(--text);
+}
+
+.audit-final {
+  font-family: var(--font-head);
+  font-size: 16px;
+  color: var(--green);
+}
+
+.audit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.audit-cell {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.audit-label {
+  display: block;
+  color: var(--text3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 4px;
+}
+
+.audit-value {
+  font-family: var(--font-head);
+  font-size: 15px;
+  color: var(--text);
+}
+
 .filter-bar {
   display: flex;
   gap: 12px;

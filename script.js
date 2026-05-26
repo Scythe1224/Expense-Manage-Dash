@@ -502,6 +502,57 @@ function getBankCurrentFromHistory(bankId) {
   return current;
 }
 
+function getBankAudit(bankId) {
+  const bank = getBank(bankId);
+  if (!bank) return null;
+
+  let income = 0;
+  let expense = 0;
+  let sip = 0;
+  let emi = 0;
+  let transferOut = 0;
+  let transferIn = 0;
+
+  (DB.txns || []).forEach(txn => {
+    const type = normalizeTxnTypeValue(txn.type);
+    const amount = Number(txn.amount || 0);
+    const fromMatches = sameBankRef(bank, txn.bankId, txn.bank);
+    const toMatches = sameBankRef(bank, txn.toBankId, txn.toBank || txn.toBankName || '');
+
+    if (type === 'Income' && fromMatches) income += amount;
+    if (type === 'Expense' && fromMatches) expense += amount;
+    if (type === 'SIP / Investment' && fromMatches) sip += amount;
+    if (type === 'Loan EMI' && fromMatches) emi += amount;
+    if (type === 'Self Transfer') {
+      const hasTransferLedgerMatch = txn.transferId && (DB.transfers || []).some(tr => tr.id === txn.transferId);
+      if (!hasTransferLedgerMatch) {
+        if (fromMatches) transferOut += amount;
+        if (toMatches) transferIn += amount;
+      }
+    }
+  });
+
+  (DB.transfers || []).forEach(tr => {
+    const amount = Number(tr.amount || 0);
+    if (sameBankRef(bank, tr.fromId, tr.from)) transferOut += amount;
+    if (sameBankRef(bank, tr.toId, tr.to)) transferIn += amount;
+  });
+
+  const opening = Number(bank.opening || 0);
+  const calculated = opening + income - expense - sip - emi - transferOut + transferIn;
+
+  return {
+    opening,
+    income,
+    expense,
+    sip,
+    emi,
+    transferOut,
+    transferIn,
+    calculated
+  };
+}
+
 function syncBankCurrents() {
   DB.banks.forEach(bank => {
     bank.current = getBankCurrentFromHistory(bank.id);
@@ -709,6 +760,32 @@ function renderBanks() {
     </tr>
   `).join('') : `<tr><td colspan="4" class="empty-state">No banks yet. Add one.</td></tr>`;
   document.getElementById('banks-total').textContent = `Total Balance: ${fmt(sumBy(DB.banks, 'current'))}`;
+  document.getElementById('bank-audit-list').innerHTML = DB.banks.length ? `
+    <div class="audit-list">
+      ${DB.banks.map(bank => {
+        const audit = getBankAudit(bank.id);
+        return `
+          <div class="audit-item">
+            <div class="audit-head">
+              <div class="audit-title">${bank.name}</div>
+              <div class="audit-final">${fmt(audit.calculated)}</div>
+            </div>
+            <div class="audit-grid">
+              <div class="audit-cell"><span class="audit-label">Opening</span><div class="audit-value">${fmt(audit.opening)}</div></div>
+              <div class="audit-cell"><span class="audit-label">Income</span><div class="audit-value">${fmt(audit.income)}</div></div>
+              <div class="audit-cell"><span class="audit-label">Expense</span><div class="audit-value">${fmt(audit.expense)}</div></div>
+              <div class="audit-cell"><span class="audit-label">SIP</span><div class="audit-value">${fmt(audit.sip)}</div></div>
+              <div class="audit-cell"><span class="audit-label">EMI</span><div class="audit-value">${fmt(audit.emi)}</div></div>
+              <div class="audit-cell"><span class="audit-label">Transfer Out</span><div class="audit-value">${fmt(audit.transferOut)}</div></div>
+              <div class="audit-cell"><span class="audit-label">Transfer In</span><div class="audit-value">${fmt(audit.transferIn)}</div></div>
+              <div class="audit-cell"><span class="audit-label">Stored Current</span><div class="audit-value">${fmt(bank.current)}</div></div>
+              <div class="audit-cell"><span class="audit-label">Calculated Final</span><div class="audit-value">${fmt(audit.calculated)}</div></div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  ` : emptyState('B', 'No banks added');
 }
 
 function onTxnTypeChange() {
