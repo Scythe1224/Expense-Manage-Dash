@@ -103,6 +103,7 @@ function normalizeData() {
 
   syncRecurringStatuses();
   syncLoanStatuses();
+  syncBankCurrents();
   DB.save();
 }
 
@@ -408,6 +409,30 @@ function sumBy(list, field) {
   return list.reduce((sum, item) => sum + Number(item[field] || 0), 0);
 }
 
+function getBankCurrentFromHistory(bankId) {
+  const bank = getBank(bankId);
+  if (!bank) return 0;
+
+  return DB.txns.reduce((current, txn) => {
+    const type = normalizeTxnTypeValue(txn.type);
+    const amount = Number(txn.amount || 0);
+
+    if (type === 'Income' && txn.bankId === bankId) return current + amount;
+    if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && txn.bankId === bankId) return current - amount;
+    if (type === 'Self Transfer') {
+      if (txn.bankId === bankId) current -= amount;
+      if (txn.toBankId === bankId) current += amount;
+    }
+    return current;
+  }, Number(bank.opening || 0));
+}
+
+function syncBankCurrents() {
+  DB.banks.forEach(bank => {
+    bank.current = getBankCurrentFromHistory(bank.id);
+  });
+}
+
 function syncRecurringStatuses() {
   DB.recurringPayments.forEach(item => {
     const schedule = getScheduleDates(item.dueDate, frequencyToMonths(item.frequency), 60);
@@ -428,6 +453,8 @@ function syncLoanStatuses() {
 function renderAll() {
   syncRecurringStatuses();
   syncLoanStatuses();
+  syncBankCurrents();
+  DB.save();
   populateBankSelects();
   renderDashboard();
   renderBanks();
@@ -532,11 +559,11 @@ function openBankModal(id) {
     const bank = DB.banks.find(item => item.id === id);
     document.getElementById('bank-name').value = bank.name;
     document.getElementById('bank-opening').value = bank.opening;
-    document.getElementById('bank-current').value = bank.current;
+    document.getElementById('bank-current-preview').value = fmt(bank.current);
   } else {
     document.getElementById('bank-name').value = '';
     document.getElementById('bank-opening').value = '';
-    document.getElementById('bank-current').value = '';
+    document.getElementById('bank-current-preview').value = 'Will be calculated automatically';
   }
   openModal('modal-bank');
 }
@@ -544,7 +571,6 @@ function openBankModal(id) {
 function saveBank() {
   const name = document.getElementById('bank-name').value.trim();
   const opening = Number(document.getElementById('bank-opening').value || 0);
-  const current = Number(document.getElementById('bank-current').value || 0);
   const id = document.getElementById('bank-edit-id').value;
   if (!name) return toast('Bank name required', 'error');
 
@@ -552,7 +578,6 @@ function saveBank() {
     const bank = DB.banks.find(item => item.id === id);
     bank.name = name;
     bank.opening = opening;
-    bank.current = current;
     DB.txns.forEach(txn => {
       if (txn.bankId === id) txn.bank = name;
       if (txn.toBankId === id && txn.type === 'Self Transfer') txn.desc = txn.desc;
@@ -568,9 +593,10 @@ function saveBank() {
     });
     toast('Bank updated');
   } else {
-    DB.banks.push({ id: uid(), name, opening, current });
+    DB.banks.push({ id: uid(), name, opening, current: opening });
     toast('Bank added');
   }
+  syncBankCurrents();
   DB.save();
   populateBankSelects();
   closeModal('modal-bank');
