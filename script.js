@@ -480,6 +480,13 @@ function getBankCurrentFromHistory(bankId) {
 
     if (type === 'Income' && fromMatches) return currentValue + amount;
     if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && fromMatches) return currentValue - amount;
+    if (type === 'Self Transfer') {
+      const hasTransferLedgerMatch = txn.transferId && (DB.transfers || []).some(tr => tr.id === txn.transferId);
+      if (!hasTransferLedgerMatch) {
+        if (fromMatches) currentValue -= amount;
+        if (toMatches) currentValue += amount;
+      }
+    }
     return currentValue;
   }, Number(bank.opening || 0));
 
