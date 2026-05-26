@@ -73,7 +73,6 @@ function normalizeData() {
   DB.budgets = DB.budgets || { monthlyTotal: 0, categories: {}, banks: {} };
   DB.budgets.categories = DB.budgets.categories || {};
   DB.budgets.banks = DB.budgets.banks || {};
-  DB.txns = (DB.txns || []).filter(txn => !['Recurring Payment', 'Loan EMI'].includes(txn.sourceModule));
 
   DB.recurringPayments = (DB.recurringPayments || []).map(item => ({
     paidHistory: [],
@@ -102,11 +101,47 @@ function normalizeData() {
     ...item
   }));
 
+  DB.txns = (DB.txns || []).filter(txn => !shouldRemoveLegacyAutoTxn(txn));
   normalizeBankReferences();
   syncRecurringStatuses();
   syncLoanStatuses();
   syncBankCurrents();
   DB.save();
+}
+
+function normalizeTextKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function shouldRemoveLegacyAutoTxn(txn) {
+  if (['Recurring Payment', 'Loan EMI'].includes(txn.sourceModule)) return true;
+
+  const type = normalizeTxnTypeValue(txn.type);
+  const mode = normalizeTextKey(txn.mode);
+  const desc = normalizeTextKey(txn.desc);
+  const amount = Number(txn.amount || 0);
+  const bankName = txn.bank || '';
+
+  if (type === 'Loan EMI' && mode === 'auto debit') {
+    return (DB.loanEMIs || []).some(item =>
+      Number(item.emiAmount || 0) === amount &&
+      normalizeTextKey(item.loanName) &&
+      desc.includes(normalizeTextKey(item.loanName)) &&
+      sameBankRef({ id: item.bankId, name: item.bankName || getBankName(item.bankId) }, txn.bankId, bankName)
+    );
+  }
+
+  if (type === 'Expense' && mode === 'auto debit') {
+    return (DB.recurringPayments || []).some(item =>
+      Number(item.amount || 0) === amount &&
+      normalizeTextKey(item.name) &&
+      desc.includes(normalizeTextKey(item.name)) &&
+      normalizeTextKey(item.type) === normalizeTextKey(txn.category) &&
+      sameBankRef({ id: item.bankId, name: item.bankName || getBankName(item.bankId) }, txn.bankId, bankName)
+    );
+  }
+
+  return false;
 }
 
 function bindModalOverlayClose() {
