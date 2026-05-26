@@ -580,9 +580,7 @@ function getBankAudit(bankId) {
   if (!bank) return null;
 
   let income = 0;
-  let expense = 0;
-  let sip = 0;
-  let emi = 0;
+  let outflow = 0;
   let transferOut = 0;
   let transferIn = 0;
   const ledgerRows = [];
@@ -600,17 +598,9 @@ function getBankAudit(bankId) {
       income += amount;
       ledgerRows.push({ date: txn.date, kind: 'Income', direction: '+', amount, text: txn.desc || txn.category || type });
     }
-    if (type === 'Expense' && fromMatches) {
-      expense += amount;
-      ledgerRows.push({ date: txn.date, kind: 'Expense', direction: '-', amount, text: txn.desc || txn.category || type });
-    }
-    if (type === 'SIP / Investment' && fromMatches) {
-      sip += amount;
-      ledgerRows.push({ date: txn.date, kind: 'SIP', direction: '-', amount, text: txn.desc || txn.category || type });
-    }
-    if (type === 'Loan EMI' && fromMatches) {
-      emi += amount;
-      ledgerRows.push({ date: txn.date, kind: 'EMI', direction: '-', amount, text: txn.desc || txn.category || type });
+    if (['Expense', 'SIP / Investment', 'Loan EMI'].includes(type) && fromMatches) {
+      outflow += amount;
+      ledgerRows.push({ date: txn.date, kind: type, direction: '-', amount, text: txn.desc || txn.category || type });
     }
     if (type === 'Self Transfer') {
       const hasTransferLedgerMatch = txn.transferId && (DB.transfers || []).some(tr => tr.id === txn.transferId);
@@ -688,14 +678,14 @@ function getBankAudit(bankId) {
   });
 
   const opening = Number(bank.opening || 0);
-  const calculated = opening + income - expense - sip - emi - transferOut + transferIn;
+  const calculated = opening + income - outflow - transferOut + transferIn;
 
   return {
     opening,
     income,
-    expense,
-    sip,
-    emi,
+    expense: outflow,
+    sip: 0,
+    emi: 0,
     transferOut,
     transferIn,
     calculated,
