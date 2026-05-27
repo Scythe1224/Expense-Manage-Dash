@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   sipInvestments: ['sipInvestments'],
   loanEMIs: ['loanEMIs'],
   budgets: ['budgets'],
+  username: ['fo_username'],
   password: ['fo_password'],
   session: ['fo_session']
 };
@@ -33,6 +34,7 @@ const DB = {
     this.sipInvestments = this.get(STORAGE_KEYS.sipInvestments, []);
     this.loanEMIs = this.get(STORAGE_KEYS.loanEMIs, []);
     this.budgets = this.get(STORAGE_KEYS.budgets, { monthlyTotal: 0, categories: {}, banks: {} });
+    this.username = this.get(STORAGE_KEYS.username, '');
     this.password = this.get(STORAGE_KEYS.password, '');
     this.session = this.get(STORAGE_KEYS.session, false);
   },
@@ -44,6 +46,7 @@ const DB = {
     this.set(STORAGE_KEYS.sipInvestments, this.sipInvestments);
     this.set(STORAGE_KEYS.loanEMIs, this.loanEMIs);
     this.set(STORAGE_KEYS.budgets, this.budgets);
+    this.set(STORAGE_KEYS.username, this.username);
     this.set(STORAGE_KEYS.password, this.password);
     this.set(STORAGE_KEYS.session, this.session);
   }
@@ -176,6 +179,7 @@ function doLogin() {
   }
 
   if (!DB.password) {
+    DB.username = user;
     DB.password = pass;
     DB.session = true;
     DB.save();
@@ -186,7 +190,18 @@ function doLogin() {
     return;
   }
 
-  if (pass === DB.password) {
+  if (!DB.username && pass === DB.password) {
+    DB.username = user;
+    DB.session = true;
+    DB.save();
+    err.classList.add('hidden');
+    document.getElementById('login-page').classList.add('hidden');
+    showApp();
+    toast('Username saved for this browser', 'success');
+    return;
+  }
+
+  if (user === DB.username && pass === DB.password) {
     err.classList.add('hidden');
     DB.session = true;
     DB.save();
@@ -215,7 +230,9 @@ function showApp() {
 }
 
 function showChangePassword() {
+  document.getElementById('pwd-current-user').value = DB.username || '';
   document.getElementById('pwd-current').value = '';
+  document.getElementById('pwd-new-user').value = DB.username || '';
   document.getElementById('pwd-new').value = '';
   document.getElementById('pwd-confirm').value = '';
   document.getElementById('pwd-error').classList.add('hidden');
@@ -223,17 +240,23 @@ function showChangePassword() {
 }
 
 function changePassword() {
+  const currentUser = document.getElementById('pwd-current-user').value.trim();
   const current = document.getElementById('pwd-current').value;
+  const nextUser = document.getElementById('pwd-new-user').value.trim();
   const next = document.getElementById('pwd-new').value;
   const confirmPwd = document.getElementById('pwd-confirm').value;
   const err = document.getElementById('pwd-error');
+  if (currentUser !== DB.username) return showErr(err, 'Current username incorrect');
   if (current !== DB.password) return showErr(err, 'Current password incorrect');
+  if (!nextUser) return showErr(err, 'New username required');
   if (next.length < 6) return showErr(err, 'New password must be 6+ characters');
   if (next !== confirmPwd) return showErr(err, 'Passwords do not match');
+  DB.username = nextUser;
   DB.password = next;
   DB.save();
+  document.getElementById('login-user').value = DB.username;
   closeModal('modal-pwd');
-  toast('Password updated', 'success');
+  toast('Username and password updated', 'success');
 }
 
 function showPage(name, el) {

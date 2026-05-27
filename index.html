@@ -772,12 +772,20 @@
 <div id="modal-pwd" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-header">
-      <h3>Change Password</h3>
+      <h3>Update Login Details</h3>
       <button class="modal-close" onclick="closeModal('modal-pwd')">x</button>
+    </div>
+    <div class="form-group">
+      <label>Current Username</label>
+      <input type="text" id="pwd-current-user" autocomplete="off"/>
     </div>
     <div class="form-group">
       <label>Current Password</label>
       <input type="password" id="pwd-current"/>
+    </div>
+    <div class="form-group">
+      <label>New Username</label>
+      <input type="text" id="pwd-new-user" autocomplete="off"/>
     </div>
     <div class="form-group">
       <label>New Password</label>
