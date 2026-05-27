@@ -103,6 +103,7 @@ function normalizeData() {
 
   DB.txns = (DB.txns || []).filter(txn => !shouldRemoveLegacyAutoTxn(txn));
   normalizeBankReferences();
+  syncTransferLedgerFromTransactions();
   syncRecurringStatuses();
   syncLoanStatuses();
   syncBankCurrents();
@@ -444,6 +445,64 @@ function normalizeBankReferences() {
   DB.loanEMIs = (DB.loanEMIs || []).map(item => {
     const bank = findBankByReference(item.bankId, item.bankName);
     return { ...item, bankId: bank?.id || item.bankId || '', bankName: bank?.name || item.bankName || '' };
+  });
+}
+
+function sameTransferRecord(transfer, txn, transferNames) {
+  return transfer.date === txn.date &&
+    Number(transfer.amount || 0) === Number(txn.amount || 0) &&
+    sameBankRef({ id: transfer.fromId, name: transfer.from }, txn.bankId, transferNames.fromName) &&
+    sameBankRef({ id: transfer.toId, name: transfer.to }, txn.toBankId, transferNames.toName);
+}
+
+function syncTransferLedgerFromTransactions() {
+  DB.transfers = DB.transfers || [];
+
+  DB.txns = (DB.txns || []).map(txn => {
+    if (normalizeTxnTypeValue(txn.type) !== 'Self Transfer') return txn;
+
+    const transferNames = getLegacyTransferNames(txn);
+    const fromBank = findBankByReference(txn.bankId, transferNames.fromName || txn.bank);
+    const toBank = findBankByReference(txn.toBankId, transferNames.toName || txn.toBank || txn.toBankName);
+    if (!fromBank || !toBank) return txn;
+
+    const existingById = txn.transferId ? DB.transfers.find(tr => tr.id === txn.transferId) : null;
+    const existingByShape = DB.transfers.find(tr => sameTransferRecord(tr, txn, transferNames));
+    const matched = existingById || existingByShape;
+    const transferId = matched?.id || txn.transferId || `legacy-tr-${txn.id}`;
+
+    if (matched) {
+      Object.assign(matched, {
+        id: transferId,
+        date: txn.date,
+        fromId: fromBank.id,
+        toId: toBank.id,
+        amount: Number(txn.amount || 0),
+        from: fromBank.name,
+        to: toBank.name,
+        remarks: matched.remarks || txn.desc || `${fromBank.name} -> ${toBank.name}`
+      });
+    } else {
+      DB.transfers.push({
+        id: transferId,
+        date: txn.date,
+        fromId: fromBank.id,
+        toId: toBank.id,
+        amount: Number(txn.amount || 0),
+        from: fromBank.name,
+        to: toBank.name,
+        remarks: txn.desc || `${fromBank.name} -> ${toBank.name}`
+      });
+    }
+
+    return {
+      ...txn,
+      transferId,
+      bankId: fromBank.id,
+      bank: fromBank.name,
+      toBankId: toBank.id,
+      toBank: toBank.name
+    };
   });
 }
 
@@ -1042,13 +1101,49 @@ function saveTransaction() {
   if (id) {
     const old = DB.txns.find(item => item.id === id);
     revertTxnBalance(old);
+    if (normalizeTxnTypeValue(old.type) === 'Self Transfer') {
+      DB.transfers = (DB.transfers || []).filter(item => item.id !== old.transferId);
+    }
     Object.assign(old, {
       date, type, bankId, toBankId, amount, category, mode, desc, bank: getBankName(bankId)
     });
+    if (type === 'Self Transfer') {
+      const tr = {
+        id: old.transferId || `txn-transfer-${old.id}`,
+        date,
+        fromId: bankId,
+        toId: toBankId,
+        amount,
+        remarks: desc,
+        from: getBankName(bankId),
+        to: getBankName(toBankId)
+      };
+      old.transferId = tr.id;
+      old.toBank = tr.to;
+      DB.transfers.push(tr);
+    } else {
+      delete old.transferId;
+      delete old.toBank;
+    }
     applyTxnBalance(old);
     toast('Transaction updated');
   } else {
     const txn = { id: uid(), date, type, bankId, toBankId, amount, category, mode, desc, bank: getBankName(bankId) };
+    if (type === 'Self Transfer') {
+      const tr = {
+        id: `txn-transfer-${txn.id}`,
+        date,
+        fromId: bankId,
+        toId: toBankId,
+        amount,
+        remarks: desc,
+        from: getBankName(bankId),
+        to: getBankName(toBankId)
+      };
+      txn.transferId = tr.id;
+      txn.toBank = tr.to;
+      DB.transfers.push(tr);
+    }
     applyTxnBalance(txn);
     DB.txns.push(txn);
     toast('Transaction saved');
@@ -1094,6 +1189,9 @@ function deleteTransaction(id) {
   if (!confirm('Delete this transaction? Bank balance will be adjusted.')) return;
   const txn = DB.txns.find(item => item.id === id);
   if (txn) revertTxnBalance(txn);
+  if (txn && normalizeTxnTypeValue(txn.type) === 'Self Transfer' && txn.transferId) {
+    DB.transfers = (DB.transfers || []).filter(item => item.id !== txn.transferId);
+  }
   DB.txns = DB.txns.filter(item => item.id !== id);
   DB.save();
   renderAll();
